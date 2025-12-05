@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tennis Tournament Scheduler</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .subtitle {
+            text-align: center;
+            color: #7f8c8d;
+            margin-bottom: 30px;
+        }
+        .round {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .round-header {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+        }
+        .match {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+        }
+        .singles {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        .doubles {
+            color: #27ae60;
+            font-weight: bold;
+        }
+        .court-label {
+            display: inline-block;
+            width: 80px;
+            font-weight: bold;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .print-button {
+            background-color: #95a5a6;
+        }
+        .print-button:hover {
+            background-color: #7f8c8d;
+        }
+        @media print {
+            button {
+                display: none;
+            }
+            body {
+                background-color: white;
+            }
+            .input-section {
+                display: none;
+            }
+        }
+        .input-section {
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .input-section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+        }
+        .name-inputs {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+        .name-inputs input {
+            padding: 10px;
+            font-size: 1em;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            transition: border-color 0.3s;
+        }
+        .name-inputs input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎾 Tennis Tournament Scheduler</h1>
+    <p class="subtitle">Round-robin singles + balanced doubles for groups of 6</p>
+    
+    <div class="input-section">
+        <h2>Player Names</h2>
+        <div class="name-inputs">
+            <input type="text" id="player1" placeholder="Player 1" value="Player 1">
+            <input type="text" id="player2" placeholder="Player 2" value="Player 2">
+            <input type="text" id="player3" placeholder="Player 3" value="Player 3">
+            <input type="text" id="player4" placeholder="Player 4" value="Player 4">
+            <input type="text" id="player5" placeholder="Player 5" value="Player 5">
+            <input type="text" id="player6" placeholder="Player 6" value="Player 6">
+        </div>
+    </div>
+    
+    <button onclick="generateSchedule()">Generate Schedule</button>
+    <button class="print-button" onclick="printSchedule()">Print Schedule</button>
+    <button class="print-button" onclick="downloadSchedule()">Download Schedule</button>
+    
+    <div id="schedule"></div>
+
+    <script>
+        function generateSchedule() {
+            // Get player names from input fields
+            const playerNames = [
+                document.getElementById('player1').value || 'Player 1',
+                document.getElementById('player2').value || 'Player 2',
+                document.getElementById('player3').value || 'Player 3',
+                document.getElementById('player4').value || 'Player 4',
+                document.getElementById('player5').value || 'Player 5',
+                document.getElementById('player6').value || 'Player 6'
+            ];
+            
+            const players = [0, 1, 2, 3, 4, 5];
+            
+            // Generate all singles matchups
+            const singlesMatches = [];
+            for (let i = 0; i < players.length; i++) {
+                for (let j = i + 1; j < players.length; j++) {
+                    singlesMatches.push([players[i], players[j]]);
+                }
+            }
+            
+            // Shuffle to randomize the order
+            shuffleArray(singlesMatches);
+            
+            // Track how many times each pair has played together/against in doubles
+            const partnerCount = {};
+            const opponentCount = {};
+            
+            function getPairKey(p1, p2) {
+                return p1 < p2 ? `${p1}-${p2}` : `${p2}-${p1}`;
+            }
+            
+            function getPartnerCount(p1, p2) {
+                const key = getPairKey(p1, p2);
+                return partnerCount[key] || 0;
+            }
+            
+            function getOpponentCount(p1, p2) {
+                const key = getPairKey(p1, p2);
+                return opponentCount[key] || 0;
+            }
+            
+            function incrementPartner(p1, p2) {
+                const key = getPairKey(p1, p2);
+                partnerCount[key] = (partnerCount[key] || 0) + 1;
+            }
+            
+            function incrementOpponent(p1, p2) {
+                const key = getPairKey(p1, p2);
+                opponentCount[key] = (opponentCount[key] || 0) + 1;
+            }
+            
+            // Generate doubles matches for each singles match
+            const schedule = [];
+            
+            for (let singles of singlesMatches) {
+                const doublesPlayers = players.filter(p => !singles.includes(p));
+                
+                // Try to find the best doubles pairing
+                const possiblePairings = [
+                    [[doublesPlayers[0], doublesPlayers[1]], [doublesPlayers[2], doublesPlayers[3]]],
+                    [[doublesPlayers[0], doublesPlayers[2]], [doublesPlayers[1], doublesPlayers[3]]],
+                    [[doublesPlayers[0], doublesPlayers[3]], [doublesPlayers[1], doublesPlayers[2]]]
+                ];
+                
+                // Score each pairing based on how many times these partnerships/matchups have occurred
+                let bestPairing = possiblePairings[0];
+                let bestScore = Infinity;
+                
+                for (let pairing of possiblePairings) {
+                    const team1 = pairing[0];
+                    const team2 = pairing[1];
+                    
+                    // Calculate score (lower is better)
+                    const score = 
+                        getPartnerCount(team1[0], team1[1]) * 10 +
+                        getPartnerCount(team2[0], team2[1]) * 10 +
+                        getOpponentCount(team1[0], team2[0]) +
+                        getOpponentCount(team1[0], team2[1]) +
+                        getOpponentCount(team1[1], team2[0]) +
+                        getOpponentCount(team1[1], team2[1]);
+                    
+                    if (score < bestScore) {
+                        bestScore = score;
+                        bestPairing = pairing;
+                    }
+                }
+                
+                // Update counts
+                const team1 = bestPairing[0];
+                const team2 = bestPairing[1];
+                incrementPartner(team1[0], team1[1]);
+                incrementPartner(team2[0], team2[1]);
+                incrementOpponent(team1[0], team2[0]);
+                incrementOpponent(team1[0], team2[1]);
+                incrementOpponent(team1[1], team2[0]);
+                incrementOpponent(team1[1], team2[1]);
+                
+                schedule.push({
+                    singles: singles,
+                    doubles: bestPairing
+                });
+            }
+            
+            // Display the schedule
+            displaySchedule(schedule, playerNames);
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+        
+        function displaySchedule(schedule, playerNames) {
+            const scheduleDiv = document.getElementById('schedule');
+            scheduleDiv.innerHTML = '';
+            
+            schedule.forEach((round, index) => {
+                const roundDiv = document.createElement('div');
+                roundDiv.className = 'round';
+                
+                roundDiv.innerHTML = `
+                    <div class="round-header">Round ${index + 1}</div>
+                    <div class="match">
+                        <span class="court-label">Court 1:</span>
+                        <span class="singles">Singles</span> - 
+                        ${playerNames[round.singles[0]]} vs ${playerNames[round.singles[1]]}
+                    </div>
+                    <div class="match">
+                        <span class="court-label">Court 2:</span>
+                        <span class="doubles">Doubles</span> - 
+                        ${playerNames[round.doubles[0][0]]} & ${playerNames[round.doubles[0][1]]} vs 
+                        ${playerNames[round.doubles[1][0]]} & ${playerNames[round.doubles[1][1]]}
+                    </div>
+                `;
+                
+                scheduleDiv.appendChild(roundDiv);
+            });
+        }
+        
+        function printSchedule() {
+            const scheduleDiv = document.getElementById('schedule');
+            console.log('Print button clicked');
+            console.log('Schedule content:', scheduleDiv.innerHTML);
+            
+            if (scheduleDiv.innerHTML.trim() === '') {
+                alert('Please generate a schedule first before printing!');
+                return;
+            }
+            
+            try {
+                console.log('Attempting to print...');
+                window.print();
+                console.log('Print dialog should have opened');
+            } catch (error) {
+                console.error('Print error:', error);
+                alert('Print failed: ' + error.message);
+            }
+        }
+        
+        function downloadSchedule() {
+            const scheduleDiv = document.getElementById('schedule');
+            
+            if (scheduleDiv.innerHTML.trim() === '') {
+                alert('Please generate a schedule first!');
+                return;
+            }
+            
+            // Get player names
+            const playerNames = [
+                document.getElementById('player1').value || 'Player 1',
+                document.getElementById('player2').value || 'Player 2',
+                document.getElementById('player3').value || 'Player 3',
+                document.getElementById('player4').value || 'Player 4',
+                document.getElementById('player5').value || 'Player 5',
+                document.getElementById('player6').value || 'Player 6'
+            ];
+            
+            // Extract schedule text
+            let scheduleText = 'TENNIS TOURNAMENT SCHEDULE\n';
+            scheduleText += 'Round-robin singles + balanced doubles for groups of 6\n';
+            scheduleText += '='.repeat(60) + '\n\n';
+            scheduleText += 'Players: ' + playerNames.join(', ') + '\n\n';
+            scheduleText += '='.repeat(60) + '\n\n';
+            
+            const rounds = scheduleDiv.querySelectorAll('.round');
+            rounds.forEach((round, index) => {
+                const matches = round.querySelectorAll('.match');
+                scheduleText += `ROUND ${index + 1}\n`;
+                scheduleText += '-'.repeat(40) + '\n';
+                
+                matches.forEach(match => {
+                    const text = match.textContent.trim();
+                    scheduleText += text + '\n';
+                });
+                
+                scheduleText += '\n';
+            });
+            
+            // Create download
+            const blob = new Blob([scheduleText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'tournament_schedule.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
